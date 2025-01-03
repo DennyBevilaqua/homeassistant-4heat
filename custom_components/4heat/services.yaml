@@ -1,0 +1,12 @@
+
+set_value:
+  name: Set value
+  description: Sets val speed.
+  fields:
+    entity_id:
+      description: Id of the entiy to set
+      example: "sendor.something"
+    value:
+      description: value to set
+      example: "5"
+
