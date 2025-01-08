@@ -1,6 +1,5 @@
 {
   "config": {
-    "title": "4Heat",
     "abort": {
       "already_configured": "Device is already configured",
       "reconfigure_successful": "Reconfiguration successful"
