@@ -1,137 +1,167 @@
+"""Config flows for our integration.
+
+This config flow demonstrates many aspects of possible config flows.
+
+Multi step flows
+Menus
+Using your api data in your flow
+"""
+
+from __future__ import annotations
+
 import logging
+from typing import Any
+
 import voluptuous as vol
-import socket
-from requests.exceptions import HTTPError, ConnectTimeout
 
-from homeassistant import config_entries
-import homeassistant.helpers.config_validation as cv
+from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.const import CONF_CODE, CONF_PASSWORD, CONF_PIN, CONF_USERNAME
+from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 
-from homeassistant.const import (
-    CONF_HOST,
-    CONF_NAME,
-    CONF_MONITORED_CONDITIONS,
+from .api import API, APIAuthError, APIConnectionError
+from .const import DOMAIN
+
+_LOGGER = logging.getLogger(__name__)
+
+# ----------------------------------------------------------------------------
+# Adjust the data schema to the data that you need
+# ----------------------------------------------------------------------------
+STEP_USER_DATA_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_CODE, description={"suggested_value": "22022440"}): str,
+        vol.Required(CONF_PIN, description={"suggested_value": "198201"}): str,
+        vol.Required(
+            CONF_USERNAME, description={"suggested_value": "denny@bevilaqua.eu"}
+        ): str,
+        vol.Required(
+            CONF_PASSWORD, description={"suggested_value": "DBcode3101!"}
+        ): str,
+    }
 )
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.util import slugify
-
-from .const import (
-    DOMAIN,
-    SENSOR_TYPES, 
-    DATA_QUERY,
-    SOCKET_BUFFER, 
-    SOCKET_TIMEOUT,
-    TCP_PORT,
-    CONF_MODE,
-    CMD_MODE_OPTIONS
-)  
-
-SUPPORTED_SENSOR_TYPES = list(SENSOR_TYPES)
-
-DEFAULT_MONITORED_CONDITIONS = [
-    "30001",
-]
 
 
-@callback
-def four_heat_entries(hass: HomeAssistant):
-    """Return the hosts for the domain."""
-    return set(
-        (entry.data[CONF_HOST]) for entry in hass.config_entries.async_entries(DOMAIN)
-    )
+async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
+    """Validate the user input allows us to connect.
+
+    Data has the keys from STEP_USER_DATA_SCHEMA with values provided by the user.
+    """
+    try:
+        # ----------------------------------------------------------------------------
+        # If your api is not async, use the executor to access it
+        # If you cannot connect, raise CannotConnect
+        # If the authentication is wrong, raise InvalidAuth
+        # ----------------------------------------------------------------------------
+        api = API(
+            data[CONF_CODE], data[CONF_PIN], data[CONF_USERNAME], data[CONF_PASSWORD]
+        )
+        await hass.async_add_executor_job(api.get_token)
+    except APIAuthError as err:
+        _LOGGER.error("Error authenticating with 4Heat API: %", err)
+        raise InvalidAuth from err
+    except APIConnectionError as err:
+        _LOGGER.error("Error authenticating with 4Heat API: %", err)
+        raise CannotConnect from err
+    return {"title": f"Example Integration - {data[CONF_CODE]}"}
 
 
-class FourHeatConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """4Heat config flow."""
+class FourHeatConfigFlow(ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for Example Integration."""
 
     VERSION = 1
+    _input_data: dict[str, Any]
+    _title: str
 
-    CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLL
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle the initial step.
 
-    conditions=[]
+        Called when you initiate adding an integration via the UI
+        """
 
-    def __init__(self) -> None:
-        """Initialize the config flow."""
-        self._errors = {}
-        self._info = {}
+        _LOGGER.info("Async_step_user")
 
-    def _host_in_configuration_exists(self, host) -> bool:
-        """Return True if site_id exists in configuration."""
-        if host in four_heat_entries(self.hass):
-            return True
-        return False
-
-    def _check_host(self, host) -> bool:
-        """Check if we can connect to the FourHeat."""
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(SOCKET_TIMEOUT)
-            s.connect((host, TCP_PORT))
-            s.send(DATA_QUERY)
-            result= s.recv(SOCKET_BUFFER).decode()
-            s.close()
-            result = result.replace("]","")
-            result = result.replace('"',"")
-            self.conditions = result.split(",")
-            if len(self.conditions) > 3:
-                return True
-        except (ConnectTimeout, HTTPError):
-            self._errors[CONF_HOST] = "could_not_connect"
-            return False
-
-        return True
-
-    async def async_step_user(self, user_input=None):
-        """Handle the initial step."""
+        errors: dict[str, str] = {}
 
         if user_input is not None:
-            if self._host_in_configuration_exists(user_input[CONF_HOST]):
-                self._errors[CONF_HOST] = "host_exists"
-            else:
-                name = user_input[CONF_NAME]
-                host = user_input[CONF_HOST]
-                legacy_cmd = user_input[CONF_MODE]
-                can_connect = await self.hass.async_add_executor_job(
-                    self._check_host, host
-                )
-                if can_connect:
-                    return self.async_create_entry(
-                        title=f"{name}",
-                        data={
-                            CONF_HOST: host,
-                            CONF_MODE: legacy_cmd,
-                            CONF_MONITORED_CONDITIONS: self.conditions,
-                        },
-                    )
-        else:
-            user_input = {}
-            user_input[CONF_NAME] = "Stove"
-            user_input[CONF_HOST] = "192.168.0.0"
-            user_input[CONF_MODE] = False
+            # The form has been filled in and submitted, so process the data provided.
+            try:
+                info = await validate_input(self.hass, user_input)
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except InvalidAuth:
+                errors["base"] = "invalid_auth"
+            except Exception:  # pylint: disable=broad-except
+                _LOGGER.exception("Unexpected exception")
+                errors["base"] = "unknown"
 
-        default_monitored_conditions = (
-            self.conditions if len(self.conditions) == 0 else DEFAULT_MONITORED_CONDITIONS
-        )
+            if "base" not in errors:
+                # Validation was successful, so create a unique id for this instance of your integration
+                # and create the config entry.
+                await self.async_set_unique_id(info.get("title"))
+                self._abort_if_unique_id_configured()
+                return self.async_create_entry(title=info["title"], data=user_input)
 
-        setup_schema = vol.Schema(
-            {
-                vol.Required(CONF_NAME, default=user_input[CONF_NAME]): str,
-                vol.Required(CONF_HOST, default=user_input[CONF_HOST]): str,
-                vol.Optional(
-                    CONF_MODE, default=user_input[CONF_MODE],
-                    description='mode'
-                ): bool,
-                vol.Optional(
-                    CONF_MONITORED_CONDITIONS, default=default_monitored_conditions
-                ): cv.multi_select(self.conditions),
-            }
-        )
-
+        # Show initial form.
         return self.async_show_form(
-            step_id="user", data_schema=setup_schema, errors=self._errors
+            step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
         )
 
-    async def async_step_import(self, user_input=None):
-        """Import a config entry."""
-        if self._host_in_configuration_exists(user_input[CONF_HOST]):
-            return self.async_abort(reason="host_exists")
-        return await self.async_step_user(user_input)
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Add reconfigure step to allow to reconfigure a config entry.
+
+        This methid displays a reconfigure option in the integration and is
+        different to options.
+        It can be used to reconfigure any of the data submitted when first installed.
+        This is optional and can be removed if you do not want to allow reconfiguration.
+        """
+
+        _LOGGER.info("Async_step_reconfigure")
+
+        errors: dict[str, str] = {}
+        config_entry = self.hass.config_entries.async_get_entry(
+            self.context["entry_id"]
+        )
+
+        if user_input is not None:
+            try:
+                user_input[CONF_CODE] = config_entry.data[CONF_CODE]
+                await validate_input(self.hass, user_input)
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except InvalidAuth:
+                errors["base"] = "invalid_auth"
+            except Exception:  # pylint: disable=broad-except
+                _LOGGER.exception("Unexpected exception")
+                errors["base"] = "unknown"
+            else:
+                return self.async_update_reload_and_abort(
+                    config_entry,
+                    unique_id=config_entry.unique_id,
+                    data={**config_entry.data, **user_input},
+                    reason="reconfigure_successful",
+                )
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_PIN, default=config_entry.data[CONF_PIN]): str,
+                    vol.Required(
+                        CONF_USERNAME, default=config_entry.data[CONF_USERNAME]
+                    ): str,
+                    vol.Required(CONF_PASSWORD): str,
+                }
+            ),
+            errors=errors,
+        )
+
+
+class CannotConnect(HomeAssistantError):
+    """Error to indicate we cannot connect."""
+
+
+class InvalidAuth(HomeAssistantError):
+    """Error to indicate there is invalid auth."""

@@ -1,20 +1,31 @@
 {
   "config": {
     "title": "4Heat",
+    "abort": {
+      "already_configured": "Device is already configured",
+      "reconfigure_successful": "Reconfiguration successful"
+    },
+    "error": {
+      "cannot_connect": "Failed to connect",
+      "invalid_auth": "Invalid authentication",
+      "unknown": "Unexpected error"
+    },
     "step": {
       "user": {
         "data": {
-          "name": "Name of the device",
-          "host": "The ip address of this 4Heat device",
-          "mode": "Legacy command mode"
+          "code": "Code of the device",
+          "pin": "The pin of this 4Heat device",
+          "username": "4Heat username",
+          "password": "4Heat password"
+        }
+      },
+      "reconfigure": {
+        "data": {
+          "pin": "The PIN of this 4Heat device",
+          "username": "4Heat username",
+          "password": "4Heat password"
         }
       }
-    },
-    "error": {
-      "host_exists": "This host is already configured"
-    },
-    "abort": {
-      "host_exists": "This host is already configured"
     }
   }
 }

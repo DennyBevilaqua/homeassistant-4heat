@@ -1,127 +1,102 @@
-"""The 4Heat integration."""
+"""Sensor setup for our Integration.
 
+Here we use a different method to define some of our entity classes.
+As, in our example, so much is common, we use our base entity class to define
+many properties, then our base sensor class to define the property to get the
+value of the sensor.
+
+As such, for all our other sensor types, we can just set the _attr_ value to
+keep our code small and easily readable.  You can do this for all entity properties(attributes)
+if you so wish, or mix and match to suit.
+"""
+
+from dataclasses import dataclass
 import logging
-from homeassistant.const import CONF_MONITORED_CONDITIONS
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import (
-    MODE_NAMES, ERROR_NAMES, POWER_NAMES,
-    MODE_TYPE, ERROR_TYPE, POWER_TYPE,
-    SENSOR_TYPES, DOMAIN, DATA_COORDINATOR,
-    ATTR_MARKER, ATTR_NUM_VAL, ATTR_READING_ID, ATTR_STOVE_ID
-)
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import UnitOfTemperature
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+from .base import FourHeatBaseEntity
+from .const import DATA_ROOM_TEMPERATURE, DATA_TEMPERATURE, DOMAIN
 from .coordinator import FourHeatDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
-    """Add an FourHeat entry."""
-    coordinator: FourHeatDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id][
-        DATA_COORDINATOR
+@dataclass
+class SensorTypeClass:
+    """Class for holding sensor type to sensor class."""
+
+    type: str
+    sensor_class: object
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+):
+    """Set up the Sensors."""
+    # This gets the data update coordinator from hass.data as specified in your __init__.py
+    coordinator: FourHeatDataUpdateCoordinator = hass.data[DOMAIN][
+        config_entry.entry_id
+    ].coordinator
+
+    # ----------------------------------------------------------------------------
+    # Here we enumerate the sensors in your data value from your
+    # DataUpdateCoordinator and add an instance of your sensor class to a list
+    # for each one.
+    # This maybe different in your specific case, depending on how your data is
+    # structured
+    # ----------------------------------------------------------------------------
+
+    sensor_types = [
+        SensorTypeClass(DATA_TEMPERATURE, FourHeatTemperatureSensor),
+        SensorTypeClass(DATA_ROOM_TEMPERATURE, FourHeatTemperatureSensor),
     ]
-    entities = []
-    sensorIds = entry.data[CONF_MONITORED_CONDITIONS]
 
-    for sensorId in sensorIds:
-        if len(sensorId) > 5:
-            try:
-                sId = sensorId[1:6]
-                entities.append(FourHeatDevice(coordinator, sId, entry.title))
-            except:
-                _LOGGER.debug(f"Error adding {sensorId}")
+    sensors = []
 
-    async_add_entities(entities)
+    for sensor_type in sensor_types:
+        sensors.extend(
+            [
+                sensor_type.sensor_class(coordinator, device, sensor_type.type)
+                for device in coordinator.data
+                if device.get(sensor_type.type)
+            ]
+        )
+
+    # Now create the sensors.
+    async_add_entities(sensors)
 
 
-class FourHeatDevice(CoordinatorEntity):
-    """Representation of a 4Heat device."""
+class FourHeatBaseSensor(FourHeatBaseEntity, SensorEntity):
+    """Implementation of a sensor.
 
-    def __init__(self, coordinator, sensor_type, name):
-        """Initialize the sensor."""
-        super().__init__(coordinator)
-        if sensor_type not in SENSOR_TYPES:
-            _LOGGER.error(f"Sensor '{sensor_type}' unkonwn, notify maintainer.")
-            SENSOR_TYPES[sensor_type] = [f"UN {sensor_type}", None, ""]
-        self._sensor = SENSOR_TYPES[sensor_type][0]
-        self._name = name
-        self.type = sensor_type
-        self.coordinator = coordinator
-        self._last_value = None
-        self.serial_number = coordinator.serial_number
-        self.model = coordinator.model
-        self._unit_of_measurement = SENSOR_TYPES[self.type][1]
-        self._icon = SENSOR_TYPES[self.type][2]
-        _LOGGER.debug(self.coordinator)
+    This inherits our ExampleBaseEntity to set common properties.
+    See base.py for this class.
+
+    https://developers.home-assistant.io/docs/core/entity/sensor
+    """
 
     @property
-    def name(self):
-        """Return the name of the sensor."""
-        return f"{self._name} {self._sensor}"
+    def native_value(self) -> int | float:
+        """Return the state of the entity."""
+        # Using native value and native unit of measurement, allows you to change units
+        # in Lovelace and HA will automatically calculate the correct value.
+        return self.coordinator.get_device_parameter(self.device_id, self.parameter)
 
-    @property
-    def state(self):
-        """Return the state of the device."""
-        if self.type not in self.coordinator.data: 
-            return None
-        try:
-            if self.type == MODE_TYPE:
-                state = MODE_NAMES[self.coordinator.data[self.type][0]]
-            elif self.type == ERROR_TYPE:
-                state = ERROR_NAMES[self.coordinator.data[self.type][0]]
-            elif self.type == POWER_TYPE:
-                state = POWER_NAMES[self.coordinator.data[self.type][0]]
-            else:
-                state = self.coordinator.data[self.type][0]
 
-            self._last_value = state
-        except Exception as ex:
-            _LOGGER.error(ex)
-            state = self._last_value
-        return state
+class FourHeatTemperatureSensor(FourHeatBaseSensor):
+    """Class to handle temperature sensors.
 
-    @property
-    def maker(self):
-        """Maker information"""
-        return self.coordinator.data[self.type][1]
+    This inherits the ExampleBaseSensor and so uses all the properties and methods
+    from that class and then overrides specific attributes relevant to this sensor type.
+    """
 
-    @property
-    def unit_of_measurement(self):
-        """Return the unit of measurement this sensor expresses itself in."""
-        return self._unit_of_measurement
-
-    @property
-    def icon(self):
-        """Return icon."""
-        return self._icon
-
-    @property
-    def unique_id(self):
-        """Return unique id based on device serial and variable."""
-        return f"{self._name}_{self.type}"
-
-    @property
-    def device_info(self):
-        """Return information about the device."""
-        return {
-            "identifiers": {(DOMAIN, self.serial_number)},
-            "name": self._name,
-            "manufacturer": "4Heat",
-            "model": self.model,
-        }
-
-    @property
-    def state_attributes(self):
-        try:
-            val = {ATTR_MARKER: self.coordinator.data[self.type][1]}
-            val[ATTR_READING_ID] = self.type
-            val[ATTR_STOVE_ID] = self.coordinator.stove_id
-
-            if self.type == MODE_TYPE or self.type == ERROR_TYPE or self.type == POWER_TYPE:
-                val[ATTR_NUM_VAL] = self.coordinator.data[self.type][0]
-                
-            return val
-
-        except Exception as ex:
-            _LOGGER.error(ex)
-            return None
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_suggested_display_precision = 1
