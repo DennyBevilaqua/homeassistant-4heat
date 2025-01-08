@@ -1,6 +1,6 @@
 """Constants for the 4Heat integration."""
 
-DOMAIN = "msp_4Heat_integration"
+DOMAIN = "4Heat_integration"
 
 RENAME_DEVICE_SERVICE_NAME = "rename_device_service"
 RESPONSE_SERVICE_NAME = "response_service"

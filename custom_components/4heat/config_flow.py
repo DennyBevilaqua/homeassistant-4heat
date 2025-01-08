@@ -19,7 +19,7 @@ from homeassistant.const import CONF_CODE, CONF_PASSWORD, CONF_PIN, CONF_USERNAM
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 
-from .api import API, APIAuthError, APIConnectionError
+from .api import API, APIAuthError
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -55,13 +55,18 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
         api = API(
             data[CONF_CODE], data[CONF_PIN], data[CONF_USERNAME], data[CONF_PASSWORD]
         )
+
         await hass.async_add_executor_job(api.get_token)
+
     except APIAuthError as err:
-        _LOGGER.error("Error authenticating with 4Heat API: %", err)
+        _LOGGER.error("Error authenticating with 4Heat API")
+        _LOGGER.error(err)
         raise InvalidAuth from err
-    except APIConnectionError as err:
-        _LOGGER.error("Error authenticating with 4Heat API: %", err)
+    except Exception as err:
+        _LOGGER.error("Error authenticating with 4Heat API")
+        _LOGGER.error(err)
         raise CannotConnect from err
+
     return {"title": f"Example Integration - {data[CONF_CODE]}"}
 
 

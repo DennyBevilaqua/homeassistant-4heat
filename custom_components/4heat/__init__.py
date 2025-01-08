@@ -24,7 +24,6 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import DOMAIN
 from .coordinator import FourHeatDataUpdateCoordinator
-from .services import FourHeatServicesSetup
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -105,13 +104,6 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         hass.async_create_task(
             hass.config_entries.async_forward_entry_setup(config_entry, platform)
         )
-
-    # ----------------------------------------------------------------------------
-    # Setup global services
-    # This can be done here but included in a seperate file for ease of reading.
-    # See also switch.py for entity services examples
-    # ----------------------------------------------------------------------------
-    FourHeatServicesSetup(hass, config_entry)
 
     # Return true to denote a successful setup.
     return True

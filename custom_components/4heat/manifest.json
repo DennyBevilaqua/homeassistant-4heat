@@ -1,11 +1,17 @@
 {
-  "domain": "4heat",
-  "version": "0.0.1",
-  "name": "4Heat Stove",
-  "documentation": "https://github.com/DennyBevilaqua/homeassistant-4heat",
+  "domain": "4Heat_integration",
+  "name": "4Heat Integration",
+  "codeowners": [
+    "@DennyBevilaqua"
+  ],
   "config_flow": true,
   "dependencies": [],
-  "codeowners": ["@DennyBevilaqua"],
+  "documentation": "https://github.com/DennyBevilaqua/homeassistant-4heat",
+  "homekit": {},
+  "iot_class": "cloud_polling",
   "requirements": [],
-  "iot_class": "local_polling"
+  "single_config_entry": false,
+  "ssdp": [],
+  "version": "0.0.1",
+  "zeroconf": []
 }
