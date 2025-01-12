@@ -11,13 +11,12 @@ and what additional properties and methods you need to add for each entity type.
 """
 
 import logging
-from typing import Any
 
 from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DATA_SOFTWARE_VERSION, DOMAIN
 from .coordinator import FourHeatDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,25 +46,19 @@ class FourHeatBaseEntity(CoordinatorEntity):
     def __init__(
         self,
         coordinator: FourHeatDataUpdateCoordinator,
-        device: dict[str, Any],
         parameter: str,
     ) -> None:
         """Initialise entity."""
         super().__init__(coordinator)
-        self.device = device
-        self.device_id = device["device_id"]
+        self.data = coordinator.data
         self.parameter = parameter
 
     @callback
     def _handle_coordinator_update(self) -> None:
         """Update sensor with latest data from coordinator."""
         # This method is called by your DataUpdateCoordinator when a successful update runs.
-        self.device = self.coordinator.get_device(self.device_id)
-        _LOGGER.debug(
-            "Updating device: %s, %s",
-            self.device_id,
-            self.coordinator.get_device_parameter(self.device_id, "device_name"),
-        )
+        self.data = self.coordinator.data
+        _LOGGER.debug("Updating device: %s", self.data)
         self.async_write_ha_state()
 
     @property
@@ -83,20 +76,13 @@ class FourHeatBaseEntity(CoordinatorEntity):
         # and a device uuid, mac address or some other unique attribute.
         # ----------------------------------------------------------------------------
         return DeviceInfo(
-            name=self.coordinator.get_device_parameter(self.device_id, "device_name"),
-            manufacturer="ACME Manufacturer",
-            model=str(
-                self.coordinator.get_device_parameter(self.device_id, "device_type")
-            )
-            .replace("_", " ")
-            .title(),
-            sw_version=self.coordinator.get_device_parameter(
-                self.device_id, "software_version"
-            ),
+            name=f"4Heat {self.coordinator.code}",
+            manufacturer="4Heat",
+            sw_version=self.coordinator.data[DATA_SOFTWARE_VERSION],
             identifiers={
                 (
                     DOMAIN,
-                    self.coordinator.get_device_parameter(self.device_id, "device_uid"),
+                    self.coordinator.code,
                 )
             },
         )

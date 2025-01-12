@@ -1,28 +1,34 @@
 {
   "config": {
+    "title": "4Heat Integration",
     "abort": {
       "already_configured": "Device is already configured",
-      "reconfigure_successful": "Reconfiguration successful"
+      "reconfigure_successful": "Reconfiguration successful",
+      "already_in_progress": "A setup is already in progress for this integration"
     },
     "error": {
       "cannot_connect": "Failed to connect",
       "invalid_auth": "Invalid authentication",
+      "invalid_api_response": "Invalid API response",
+      "invalid_settings": "Invalid settings",
       "unknown": "Unexpected error"
     },
     "step": {
       "user": {
+        "title": "4Heat Integration - Setup",
         "data": {
-          "code": "Code of the device",
-          "pin": "The pin of this 4Heat device",
-          "username": "4Heat username",
-          "password": "4Heat password"
+          "code": "Code",
+          "pin": "PIN",
+          "username": "Username",
+          "password": "Password"
         }
       },
       "reconfigure": {
         "data": {
-          "pin": "The PIN of this 4Heat device",
-          "username": "4Heat username",
-          "password": "4Heat password"
+          "code": "Code",
+          "pin": "PIN",
+          "username": "Username",
+          "password": "Password"
         }
       }
     }

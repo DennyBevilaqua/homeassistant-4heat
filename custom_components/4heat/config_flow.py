@@ -15,7 +15,14 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
-from homeassistant.const import CONF_CODE, CONF_PASSWORD, CONF_PIN, CONF_USERNAME
+from homeassistant.const import (
+    CONF_CODE,
+    CONF_IP_ADDRESS,
+    CONF_PASSWORD,
+    CONF_PIN,
+    CONF_PORT,
+    CONF_USERNAME,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 
@@ -41,6 +48,11 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 )
 
 
+def _raise_invalid_api_response(message):
+    _LOGGER.error(message)
+    raise InvalidAPIResponse(message)
+
+
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
     """Validate the user input allows us to connect.
 
@@ -56,18 +68,36 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
             data[CONF_CODE], data[CONF_PIN], data[CONF_USERNAME], data[CONF_PASSWORD]
         )
 
-        await hass.async_add_executor_job(api.get_token)
+        r = await hass.async_add_executor_job(api.get_token)
+        api_data = await hass.async_add_executor_job(api.get_data, r)
 
+        if api_data is None:
+            _raise_invalid_api_response("No API response")
+
+        if api_data.get("Name") is None or len(api_data.get("Name")) == 0:
+            _raise_invalid_api_response("No device name returned")
+
+        device_name = api_data.get("Name")
+
+        if api_data.get("IpAddress") is None or len(api_data.get("IpAddress")) == 0:
+            _raise_invalid_api_response("No Ip Address returned")
+
+        data.extend([{CONF_IP_ADDRESS: api_data.get("IpAddress")}, {CONF_PORT: 80}])
+
+    except InvalidAPIResponse as err:
+        _LOGGER.error("Invalid API response")
+        _LOGGER.error(err)
+        raise InvalidAPIResponse from err
     except APIAuthError as err:
         _LOGGER.error("Error authenticating with 4Heat API")
         _LOGGER.error(err)
         raise InvalidAuth from err
     except Exception as err:
-        _LOGGER.error("Error authenticating with 4Heat API")
+        _LOGGER.error("Error getting data from 4Heat API")
         _LOGGER.error(err)
         raise CannotConnect from err
 
-    return {"title": f"Example Integration - {data[CONF_CODE]}"}
+    return {"title": device_name}
 
 
 class FourHeatConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -97,6 +127,8 @@ class FourHeatConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
             except InvalidAuth:
                 errors["base"] = "invalid_auth"
+            except InvalidAPIResponse:
+                errors["base"] = "invalid_api_response"
             except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
@@ -139,6 +171,8 @@ class FourHeatConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
             except InvalidAuth:
                 errors["base"] = "invalid_auth"
+            except InvalidAPIResponse:
+                errors["base"] = "invalid_api_response"
             except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
@@ -170,3 +204,7 @@ class CannotConnect(HomeAssistantError):
 
 class InvalidAuth(HomeAssistantError):
     """Error to indicate there is invalid auth."""
+
+
+class InvalidAPIResponse(HomeAssistantError):
+    """Error to indicate there is an invalid api response."""

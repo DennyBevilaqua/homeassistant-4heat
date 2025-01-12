@@ -2,14 +2,27 @@
 
 import logging
 
-from homeassistant.components.climate import ClimateEntity, HVACMode
+from homeassistant.components.climate import (
+    ClimateEntity,
+    ClimateEntityFeature,
+    HVACMode,
+)
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfTemperature
+from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .base import FourHeatBaseEntity
-from .const import DATA_STATE, DATA_TEMPERATURE, DOMAIN
+from .const import (
+    DATA_DEVICE_ERROR_CODE,
+    DATA_DEVICE_ERROR_DESCRIPTION,
+    DATA_IS_CONNECTED,
+    DATA_LAST_TIMESTAMP,
+    DATA_ROOM_TEMPERATURE,
+    DATA_STATE,
+    DATA_TARGET_TEMPERATURE,
+    DOMAIN,
+)
 from .coordinator import FourHeatDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -26,11 +39,7 @@ async def async_setup_entry(
         config_entry.entry_id
     ].coordinator
 
-    climates = [
-        FourHeatClimate(coordinator, device, DATA_TEMPERATURE)
-        for device in coordinator.data
-        if device.get("device_type") == "SOCKET"
-    ]
+    climates = [FourHeatClimate(coordinator, "lareira")]
 
     # Now create the climates.
     async_add_entities(climates)
@@ -40,7 +49,6 @@ class FourHeatClimate(FourHeatBaseEntity, ClimateEntity):
     """4Heat climate device."""
 
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT]
-    _attr_hvac_mode = HVACMode.HEAT
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_suggested_display_precision = 1
     _attr_target_temperature_high = 45
@@ -48,16 +56,84 @@ class FourHeatClimate(FourHeatBaseEntity, ClimateEntity):
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_target_temperature_step = 1
 
-    async def async_set_temperature(
-        self,
-        temperature: float,
-        hvac_mode: str,
-        preset_mode: str,
-        **kwargs,
-    ) -> None:
-        """Set new target temperature."""
-        if self.coordinator.data[DATA_STATE] != "on":
-            await self.coordinator.async_turn_on(self.device_id)
+    def is_on(self) -> bool:
+        """Return if the device is on."""
+        return self.coordinator.data[DATA_STATE] == "on"
 
-        await self.coordinator.async_set_temperature(self.device_id, temperature)
+    @property
+    def hvac_mode(self):
+        """Return new hvac mode - HEAT or OFF."""
+        return HVACMode.HEAT if self.is_on() else HVACMode.OFF
+
+    @property
+    def supported_features(self):
+        """Return the list of supported features."""
+        return (
+            ClimateEntityFeature.TARGET_TEMPERATURE
+            | ClimateEntityFeature.TURN_OFF
+            | ClimateEntityFeature.TURN_ON
+        )
+
+    @property
+    def current_temperature(self):
+        """Return the current temperature."""
+        return self.coordinator.data[DATA_ROOM_TEMPERATURE]
+
+    @property
+    def target_temperature(self):
+        """Return the current temperature."""
+        return self.coordinator.data[DATA_TARGET_TEMPERATURE]
+
+    async def async_set_temperature(self, **kwargs):
+        """Set target temperature."""
+        if kwargs.get(ATTR_TEMPERATURE) is not None:
+            target_temperature = kwargs.get(ATTR_TEMPERATURE)
+
+            if self.is_on():
+                await self.coordinator.async_turn_on()
+
+            await self.coordinator.async_set_temperature(target_temperature)
+            await self.coordinator.async_refresh()
+        else:
+            _LOGGER.error("No temperature provided to set_temperature")
+
+    async def async_set_hvac_mode(self, hvac_mode):
+        """Set new target hvac mode."""
+        if hvac_mode == HVACMode.OFF:
+            await self.coordinator.async_turn_off()
+        else:
+            await self.coordinator.async_turn_on()
+
         await self.coordinator.async_refresh()
+
+    async def async_toggle(self):
+        """Toggle the entity."""
+        if self.is_on():
+            await self.async_turn_off()
+        else:
+            await self.async_turn_on()
+
+        await self.coordinator.async_refresh()
+
+    async def async_turn_on(self):
+        """Turn the entity on."""
+        if not self.is_on():
+            await self.coordinator.async_turn_on()
+
+    async def async_turn_off(self):
+        """Turn the entity off."""
+        if self.is_on():
+            await self.coordinator.async_turn_off()
+
+    @property
+    def extra_state_attributes(self):
+        """Return the extra state attributes."""
+        # Add any additional attributes you want on your sensor.
+        attrs = {}
+        attrs[DATA_IS_CONNECTED] = self.coordinator.data[DATA_IS_CONNECTED]
+        attrs[DATA_LAST_TIMESTAMP] = self.coordinator.data[DATA_LAST_TIMESTAMP]
+        attrs[DATA_DEVICE_ERROR_CODE] = self.coordinator.data[DATA_DEVICE_ERROR_CODE]
+        attrs[DATA_DEVICE_ERROR_DESCRIPTION] = self.coordinator.data[
+            DATA_DEVICE_ERROR_DESCRIPTION
+        ]
+        return attrs
