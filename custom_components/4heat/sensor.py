@@ -20,7 +20,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .base import FourHeatBaseEntity
-from .const import DATA_ROOM_TEMPERATURE, DATA_TARGET_TEMPERATURE, DOMAIN
+from .const import DOMAIN
 from .coordinator import FourHeatDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -54,8 +54,8 @@ async def async_setup_entry(
     # ----------------------------------------------------------------------------
 
     sensor_types = [
-        SensorTypeClass(DATA_ROOM_TEMPERATURE, FourHeatTemperatureSensor),
-        SensorTypeClass(DATA_TARGET_TEMPERATURE, FourHeatTemperatureSensor),
+        SensorTypeClass("room_temperature", FourHeatTemperatureSensor),
+        SensorTypeClass("target_temperature", FourHeatTemperatureSensor),
     ]
 
     sensors = []
@@ -81,7 +81,7 @@ class FourHeatBaseSensor(FourHeatBaseEntity, SensorEntity):
         """Return the state of the entity."""
         # Using native value and native unit of measurement, allows you to change units
         # in Lovelace and HA will automatically calculate the correct value.
-        return self.coordinator.data[self.parameter]
+        return getattr(self.coordinator.device, self.parameter)
 
 
 class FourHeatTemperatureSensor(FourHeatBaseSensor):

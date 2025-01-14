@@ -7,17 +7,10 @@ RESPONSE_SERVICE_NAME = "response_service"
 
 API_BASE_URL = "https://wifi4heat.azurewebsites.net/"
 
-DATA_DEVICE_NAME = "device_name"
-DATA_DEVICE_IP = "device_ip"
-DATA_DEVICE_PORT = "device_port"
-DATA_DEVICE_ERROR_CODE = "device_error_code"
-DATA_DEVICE_ERROR_DESCRIPTION = "device_error_description"
-DATA_TARGET_TEMPERATURE = "target_temperature"
-DATA_ROOM_TEMPERATURE = "room_temperature"
-DATA_STATE = "state"
-DATA_IS_CONNECTED = "is_connected"
-DATA_LAST_TIMESTAMP = "last_timestamp"
-DATA_SOFTWARE_VERSION = "software_version"
+COMMAND_POWER_ON = '["2WC","1","05040000"]'
+COMMAND_POWER_OFF = '["2WC","1","05050000"]'
+COMMAND_SET_TEMPERATURE = '["2WC","1","050'
+
 UPDATE_INTERVAL = 30
 
 DEVICE_ERRORS = {
@@ -88,6 +81,8 @@ DEVICE_ERRORS = {
     "64": "Encoder ventilador 2 não regulando",
     "65": "Encoder fan 3 broken",
     "66": "Encoder ventilador 3 não regulando",
+    "68": "Seletor",
+    "79": "Número máximo de aberturas do pressostato excedido",
     "200": "Falha do sensor Lambda",
     "201": "Sensor do aquecedor em curto-circuito",
     "202": "Sensor do aquecedor desconectado",
@@ -97,6 +92,5 @@ DEVICE_ERRORS = {
     "206": "Sensor Lambda em curto a + 12V",
     "207": "Tempo limite do sensor de aquecimento",
     "208": "Sensor lambda superaquecido",
-    "68": "Seletor",
-    "79": "Número máximo de aberturas do pressostato excedido",
+    "999": "Error Reading TCP Response",
 }

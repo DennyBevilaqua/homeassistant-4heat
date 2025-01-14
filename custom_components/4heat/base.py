@@ -16,7 +16,7 @@ from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DATA_SOFTWARE_VERSION, DOMAIN
+from .const import DOMAIN
 from .coordinator import FourHeatDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -50,14 +50,14 @@ class FourHeatBaseEntity(CoordinatorEntity):
     ) -> None:
         """Initialise entity."""
         super().__init__(coordinator)
-        self.data = coordinator.data
+        self.data = self.coordinator.device.to_dict()
         self.parameter = parameter
 
     @callback
     def _handle_coordinator_update(self) -> None:
         """Update sensor with latest data from coordinator."""
         # This method is called by your DataUpdateCoordinator when a successful update runs.
-        self.data = self.coordinator.data
+        self.data = self.coordinator.device.to_dict()
         _LOGGER.debug("Updating device: %s", self.data)
         self.async_write_ha_state()
 
@@ -78,7 +78,7 @@ class FourHeatBaseEntity(CoordinatorEntity):
         return DeviceInfo(
             name=f"4Heat {self.coordinator.code}",
             manufacturer="4Heat",
-            sw_version=self.coordinator.data[DATA_SOFTWARE_VERSION],
+            sw_version=self.coordinator.device.software_version,
             identifiers={
                 (
                     DOMAIN,

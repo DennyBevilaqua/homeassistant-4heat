@@ -9,14 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .base import FourHeatBaseEntity
-from .const import (
-    DATA_DEVICE_ERROR_CODE,
-    DATA_DEVICE_ERROR_DESCRIPTION,
-    DATA_IS_CONNECTED,
-    DATA_LAST_TIMESTAMP,
-    DATA_STATE,
-    DOMAIN,
-)
+from .const import DOMAIN
 from .coordinator import FourHeatDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -62,7 +55,7 @@ class FourHeatSwitch(FourHeatBaseEntity, SwitchEntity):
     def is_on(self) -> bool | None:
         """Return if the binary sensor is on."""
         # This needs to enumerate to true or false
-        return self.coordinator.data[DATA_STATE] == "on"
+        return self.coordinator.device.is_on
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the entity on."""
@@ -89,10 +82,8 @@ class FourHeatSwitch(FourHeatBaseEntity, SwitchEntity):
         """Return the extra state attributes."""
         # Add any additional attributes you want on your sensor.
         attrs = {}
-        attrs[DATA_IS_CONNECTED] = self.coordinator.data[DATA_IS_CONNECTED]
-        attrs[DATA_LAST_TIMESTAMP] = self.coordinator.data[DATA_LAST_TIMESTAMP]
-        attrs[DATA_DEVICE_ERROR_CODE] = self.coordinator.data[DATA_DEVICE_ERROR_CODE]
-        attrs[DATA_DEVICE_ERROR_DESCRIPTION] = self.coordinator.data[
-            DATA_DEVICE_ERROR_DESCRIPTION
-        ]
+        attrs["is_connected"] = self.coordinator.device.is_connected
+        attrs["timestamp"] = self.coordinator.device.state_timestamp
+        attrs["error_code"] = self.coordinator.device.error_code
+        attrs["error"] = self.coordinator.device.error_description
         return attrs

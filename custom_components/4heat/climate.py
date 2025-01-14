@@ -13,16 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .base import FourHeatBaseEntity
-from .const import (
-    DATA_DEVICE_ERROR_CODE,
-    DATA_DEVICE_ERROR_DESCRIPTION,
-    DATA_IS_CONNECTED,
-    DATA_LAST_TIMESTAMP,
-    DATA_ROOM_TEMPERATURE,
-    DATA_STATE,
-    DATA_TARGET_TEMPERATURE,
-    DOMAIN,
-)
+from .const import DOMAIN
 from .coordinator import FourHeatDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -58,7 +49,7 @@ class FourHeatClimate(FourHeatBaseEntity, ClimateEntity):
 
     def is_on(self) -> bool:
         """Return if the device is on."""
-        return self.coordinator.data[DATA_STATE] == "on"
+        return self.coordinator.device.is_on
 
     @property
     def hvac_mode(self):
@@ -77,22 +68,20 @@ class FourHeatClimate(FourHeatBaseEntity, ClimateEntity):
     @property
     def current_temperature(self):
         """Return the current temperature."""
-        return self.coordinator.data[DATA_ROOM_TEMPERATURE]
+        return self.coordinator.device.room_temperature
 
     @property
     def target_temperature(self):
         """Return the current temperature."""
-        return self.coordinator.data[DATA_TARGET_TEMPERATURE]
+        return self.coordinator.device.target_temperature
 
     async def async_set_temperature(self, **kwargs):
         """Set target temperature."""
         if kwargs.get(ATTR_TEMPERATURE) is not None:
-            target_temperature = kwargs.get(ATTR_TEMPERATURE)
+            target_temperature = int(kwargs.get(ATTR_TEMPERATURE))
 
-            if self.is_on():
-                await self.coordinator.async_turn_on()
-
-            await self.coordinator.async_set_temperature(target_temperature)
+            resp = await self.coordinator.async_set_temperature(target_temperature)
+            _LOGGER.debug("Response to set temperature command: %s", str(resp))
             await self.coordinator.async_refresh()
         else:
             _LOGGER.error("No temperature provided to set_temperature")
@@ -130,10 +119,8 @@ class FourHeatClimate(FourHeatBaseEntity, ClimateEntity):
         """Return the extra state attributes."""
         # Add any additional attributes you want on your sensor.
         attrs = {}
-        attrs[DATA_IS_CONNECTED] = self.coordinator.data[DATA_IS_CONNECTED]
-        attrs[DATA_LAST_TIMESTAMP] = self.coordinator.data[DATA_LAST_TIMESTAMP]
-        attrs[DATA_DEVICE_ERROR_CODE] = self.coordinator.data[DATA_DEVICE_ERROR_CODE]
-        attrs[DATA_DEVICE_ERROR_DESCRIPTION] = self.coordinator.data[
-            DATA_DEVICE_ERROR_DESCRIPTION
-        ]
+        attrs["is_connected"] = self.coordinator.device.is_connected
+        attrs["timestamp"] = self.coordinator.device.state_timestamp
+        attrs["error_code"] = self.coordinator.device.error_code
+        attrs["error"] = self.coordinator.device.error_description
         return attrs
