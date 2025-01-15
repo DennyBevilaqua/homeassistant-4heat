@@ -36,8 +36,8 @@ class FourHeatDataUpdateCoordinator(DataUpdateCoordinator):
         self.pin = config_entry.data[CONF_PIN]
         self.user = config_entry.data[CONF_USERNAME]
         self.pwd = config_entry.data[CONF_PASSWORD]
-        self.ip = config_entry.data.get(CONF_IP_ADDRESS, None)
-        self.port = config_entry.data.get(CONF_PORT, 80)
+        self.ip = config_entry.options.get(CONF_IP_ADDRESS, None)
+        self.port = config_entry.options.get(CONF_PORT, 80)
         self.token = None
         self.com_type = "TCP"
 

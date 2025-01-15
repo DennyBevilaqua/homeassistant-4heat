@@ -78,8 +78,6 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
         if api_data.get("IpAddress") is None or len(api_data.get("IpAddress")) == 0:
             _raise_invalid_api_response("No Ip Address returned")
 
-        data.extend([{CONF_IP_ADDRESS: api_data.get("IpAddress")}, {CONF_PORT: 80}])
-
     except InvalidAPIResponse as err:
         _LOGGER.error("Invalid API response")
         _LOGGER.error(err)
@@ -93,7 +91,11 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
         _LOGGER.error(err)
         raise CannotConnect from err
 
-    return {"title": device_name}
+    return {
+        "title": device_name,
+        CONF_IP_ADDRESS: api_data.get("IpAddress"),
+        CONF_PORT: 80,
+    }
 
 
 class FourHeatConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -134,7 +136,9 @@ class FourHeatConfigFlow(ConfigFlow, domain=DOMAIN):
                 # and create the config entry.
                 await self.async_set_unique_id(info.get("title"))
                 self._abort_if_unique_id_configured()
-                return self.async_create_entry(title=info["title"], data=user_input)
+                return self.async_create_entry(
+                    title=info["title"], data=user_input, options=info
+                )
 
         # Show initial form.
         return self.async_show_form(
