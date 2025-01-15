@@ -64,8 +64,8 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
             data[CONF_CODE], data[CONF_PIN], data[CONF_USERNAME], data[CONF_PASSWORD]
         )
 
-        r = await hass.async_add_executor_job(api.get_token)
-        api_data = await hass.async_add_executor_job(api.get_data, r)
+        token = await api.get_token()
+        api_data = await api.get_data(token)
 
         if api_data is None:
             _raise_invalid_api_response("No API response")
