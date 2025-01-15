@@ -5,13 +5,13 @@ from typing import Any
 
 import aiohttp
 
-from const import (
+from .const import (
     API_BASE_URL,
     COMMAND_POWER_OFF,
     COMMAND_POWER_ON,
-    COMMAND_SET_TEMPERATURE,
+    # COMMAND_SET_TEMPERATURE,
 )
-from device import Device
+from .device import Device
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -5,7 +5,7 @@ import json
 import logging
 from typing import Any
 
-from const import DEVICE_ERRORS
+from .const import DEVICE_ERRORS
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -3,16 +3,26 @@
 import asyncio
 import logging
 
-from api import API
-from device import Device, device_loader
-from tcp import TCPCommunication
+from .api import API
+from .device import Device, device_loader
+from .tcp import TCPCommunication
 
 _LOGGER = logging.getLogger(__name__)
 
 logging.basicConfig(level=logging.DEBUG)
-api = API("22022440", "1982", "denny@bevilaqua.eu", "DBcode3101!")
+api = None
 tcp_client = TCPCommunication("192.168.1.18", 80)
 token = None
+
+
+def initiate_api() -> API:
+    """Initiate the API with user input."""
+    code = input("Type the Device Code: ")
+    pin = input("Type the Device PIN: ")
+    username = input("Type the 4Heat Username: ")
+    password = input("Type the 4Heat Password: ")
+
+    return API(code, pin, username, password)
 
 
 async def get_token():
@@ -98,5 +108,9 @@ async def test_cloud_set_temperature(temperature: int) -> Device:
     _LOGGER.debug("Final status: %s", device.to_dict())
 
 
-token = asyncio.run(get_token())
-asyncio.run(test_cloud_set_temperature(21))
+if __name__ == "__main__":
+    # api = initiate_api()
+    # token = asyncio.run(get_token())
+    # asyncio.run(test_cloud_set_temperature(21))
+
+    asyncio.run(test_local_set_temperature(21))

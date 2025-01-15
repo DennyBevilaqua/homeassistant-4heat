@@ -36,14 +36,10 @@ _LOGGER = logging.getLogger(__name__)
 # ----------------------------------------------------------------------------
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_CODE, description={"suggested_value": "22022440"}): str,
-        vol.Required(CONF_PIN, description={"suggested_value": "198201"}): str,
-        vol.Required(
-            CONF_USERNAME, description={"suggested_value": "denny@bevilaqua.eu"}
-        ): str,
-        vol.Required(
-            CONF_PASSWORD, description={"suggested_value": "DBcode3101!"}
-        ): str,
+        vol.Required(CONF_CODE, description={"suggested_value": ""}): str,
+        vol.Required(CONF_PIN, description={"suggested_value": ""}): str,
+        vol.Required(CONF_USERNAME, description={"suggested_value": ""}): str,
+        vol.Required(CONF_PASSWORD, description={"suggested_value": ""}): str,
     }
 )
 

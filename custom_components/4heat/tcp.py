@@ -4,8 +4,8 @@ import asyncio
 import logging
 import socket
 
-from const import COMMAND_POWER_OFF, COMMAND_POWER_ON, COMMAND_SET_TEMPERATURE
-from device import Device
+from .const import COMMAND_POWER_OFF, COMMAND_POWER_ON, COMMAND_SET_TEMPERATURE
+from .device import Device
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -48,6 +48,10 @@ class TCPCommunication:
             await loop.run_in_executor(None, sock.sendall, data_to_send)
 
             response = await self.__receive_data(sock)
+        except ConnectionRefusedError as e:
+            _LOGGER.error("Connection refused to %s:%s", self.ip, str(self.port))
+            _LOGGER.error(e)
+            raise TCPCommunicationError from e
         except Exception as e:
             _LOGGER.error("Error sending Command: %s", command)
             _LOGGER.error(e)
