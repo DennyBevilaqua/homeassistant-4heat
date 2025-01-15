@@ -7,8 +7,8 @@ import aiohttp
 
 from .const import (
     API_BASE_URL,
-    COMMAND_POWER_OFF,
-    COMMAND_POWER_ON,
+    COMMAND_TURN_OFF,
+    COMMAND_TURN_ON,
     # COMMAND_SET_TEMPERATURE,
 )
 from .device import Device
@@ -70,15 +70,16 @@ class API:
                 response = await session.post(
                     f"{API_BASE_URL}/api/devices/command?id={self.code}&comando={command}",
                     headers={"Authorization": f"Bearer {token.get("access_token")}"},
-                    data={
-                        "grant_type": "password",
-                        "username": self.user,
-                        "password": self.pwd,
-                    },
                     timeout=120,
                 )
 
-                return await response.text()
+                resp = await response.text()
+
+                _LOGGER.debug(
+                    "Received response '%s' from API. Command %s", resp, command
+                )
+
+                return resp
         except Exception as err:
             _LOGGER.error(err)
             raise APIConnectionError(
@@ -87,14 +88,14 @@ class API:
 
         return True
 
-    async def power_on(self, token: dict[str, Any]) -> str:
+    async def turn_on(self, token: dict[str, Any]) -> str:
         """Send power on command to the device."""
-        command = COMMAND_POWER_ON
+        command = COMMAND_TURN_ON
         return await self.__send_command(token, command)
 
-    async def power_off(self, token: dict[str, Any]) -> str:
+    async def turn_off(self, token: dict[str, Any]) -> str:
         """Send power off command to the device."""
-        command = COMMAND_POWER_OFF
+        command = COMMAND_TURN_OFF
         return await self.__send_command(token, command)
 
     async def set_temperature(

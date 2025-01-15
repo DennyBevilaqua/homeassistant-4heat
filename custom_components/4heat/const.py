@@ -7,8 +7,9 @@ RESPONSE_SERVICE_NAME = "response_service"
 
 API_BASE_URL = "https://wifi4heat.azurewebsites.net/"
 
-COMMAND_POWER_ON = '["2WC","1","05040000"]'
-COMMAND_POWER_OFF = '["2WC","1","05050000"]'
+COMMAND_READ_DATA = '["2WL","1",""]'
+COMMAND_TURN_ON = '["2WC","1","05040000"]'
+COMMAND_TURN_OFF = '["2WC","1","05050000"]'
 COMMAND_SET_TEMPERATURE = '["2WC","1","050'
 
 UPDATE_INTERVAL = 30

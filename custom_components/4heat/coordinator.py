@@ -117,7 +117,7 @@ class FourHeatDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.warning("Will try to connect to cloud")
                 await self.__update_from_cloud()
 
-            _LOGGER.info("Data Loaded: %s", self.device.to_dict())
+            _LOGGER.debug("Data Loaded: %s", self.device.to_dict())
         except APIConnectionError as err:
             _LOGGER.error(err)
             raise UpdateFailed(err) from err
@@ -128,7 +128,7 @@ class FourHeatDataUpdateCoordinator(DataUpdateCoordinator):
         return self.device
 
     async def async_set_temperature(self, temperature: int) -> bool:
-        """Update data to API endpoint."""
+        """Set temperature."""
         resp = None
         try:
             try:
@@ -156,29 +156,53 @@ class FourHeatDataUpdateCoordinator(DataUpdateCoordinator):
         return resp is not None
 
     async def async_turn_off(self) -> bool:
-        """Update data to API endpoint."""
+        """Turn the device off."""
+        resp = None
         try:
-            await self.async_auth()
-            _LOGGER.error("Turning off")
+            try:
+                resp = await self.tcp_client.turn_off()
+            except TCPCommunicationError as e:
+                _LOGGER.error(e)
+
+            if resp is None:
+                _LOGGER.warning("Will try to send command via cloud")
+
+                await self.async_auth()
+                resp = await self.api.turn_off(self.token)
+
+                if resp:
+                    return True
+
         except APIConnectionError as err:
             _LOGGER.error(err)
             raise UpdateFailed(err) from err
         except Exception as err:
-            # This will show entities as unavailable by raising UpdateFailed exception
             raise UpdateFailed(f"Error communicating with API: {err}") from err
 
-        return True
+        return resp is not None
 
     async def async_turn_on(self) -> bool:
-        """Update data to API endpoint."""
+        """Turn the device on."""
+        resp = None
         try:
-            await self.async_auth()
-            _LOGGER.error("Turning on")
+            try:
+                resp = await self.tcp_client.turn_on()
+            except TCPCommunicationError as e:
+                _LOGGER.error(e)
+
+            if resp is None:
+                _LOGGER.warning("Will try to send command via cloud")
+
+                await self.async_auth()
+                resp = await self.api.turn_on(self.token)
+
+                if resp:
+                    return True
+
         except APIConnectionError as err:
             _LOGGER.error(err)
             raise UpdateFailed(err) from err
         except Exception as err:
-            # This will show entities as unavailable by raising UpdateFailed exception
             raise UpdateFailed(f"Error communicating with API: {err}") from err
 
-        return True
+        return resp is not None

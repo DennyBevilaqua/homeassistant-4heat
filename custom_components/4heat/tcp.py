@@ -4,7 +4,12 @@ import asyncio
 import logging
 import socket
 
-from .const import COMMAND_POWER_OFF, COMMAND_POWER_ON, COMMAND_SET_TEMPERATURE
+from .const import (
+    COMMAND_READ_DATA,
+    COMMAND_SET_TEMPERATURE,
+    COMMAND_TURN_OFF,
+    COMMAND_TURN_ON,
+)
 from .device import Device
 
 _LOGGER = logging.getLogger(__name__)
@@ -27,8 +32,6 @@ class TCPCommunication:
 
             if received_data:
                 data_str = received_data.decode()
-
-            _LOGGER.debug("Received %s from %s", data_str, self.ip)
         finally:
             sock.close()
 
@@ -48,12 +51,13 @@ class TCPCommunication:
             await loop.run_in_executor(None, sock.sendall, data_to_send)
 
             response = await self.__receive_data(sock)
+            _LOGGER.debug("Received %s from cloud")
         except ConnectionRefusedError as e:
             _LOGGER.error("Connection refused to %s:%s", self.ip, str(self.port))
             _LOGGER.error(e)
             raise TCPCommunicationError from e
         except Exception as e:
-            _LOGGER.error("Error sending Command: %s", command)
+            _LOGGER.error("Error sending command: %s", command)
             _LOGGER.error(e)
             raise TCPCommunicationError from e
         finally:
@@ -63,17 +67,17 @@ class TCPCommunication:
 
     async def read_data(self) -> str:
         """Send power off command to the device."""
-        command = COMMAND_POWER_ON
+        command = COMMAND_READ_DATA
         return await self.__send_command(command)
 
-    async def power_on(self) -> str:
+    async def turn_on(self) -> str:
         """Send power on command to the device."""
-        command = '["2WC","1","05040000"]'
+        command = COMMAND_TURN_ON
         return await self.__send_command(command)
 
-    async def power_off(self) -> str:
+    async def turn_off(self) -> str:
         """Send power off command to the device."""
-        command = COMMAND_POWER_OFF
+        command = COMMAND_TURN_OFF
         return await self.__send_command(command)
 
     async def set_temperature(self, device: Device, temperature: int) -> str:
