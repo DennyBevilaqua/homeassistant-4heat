@@ -1,5 +1,6 @@
 """DataUpdateCoordinator for 4Heat integration."""
 
+import asyncio
 from datetime import datetime, timedelta
 import logging
 
@@ -144,14 +145,13 @@ class FourHeatDataUpdateCoordinator(DataUpdateCoordinator):
                     self.device, self.token, temperature
                 )
 
-                if resp:
-                    return True
-
         except APIConnectionError as err:
             _LOGGER.error(err)
             raise UpdateFailed(err) from err
         except Exception as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
+
+        await asyncio.sleep(10)
 
         return resp is not None
 
@@ -170,14 +170,13 @@ class FourHeatDataUpdateCoordinator(DataUpdateCoordinator):
                 await self.async_auth()
                 resp = await self.api.turn_off(self.token)
 
-                if resp:
-                    return True
-
         except APIConnectionError as err:
             _LOGGER.error(err)
             raise UpdateFailed(err) from err
         except Exception as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
+
+        await asyncio.sleep(10)
 
         return resp is not None
 
@@ -196,13 +195,12 @@ class FourHeatDataUpdateCoordinator(DataUpdateCoordinator):
                 await self.async_auth()
                 resp = await self.api.turn_on(self.token)
 
-                if resp:
-                    return True
-
         except APIConnectionError as err:
             _LOGGER.error(err)
             raise UpdateFailed(err) from err
         except Exception as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
+
+        await asyncio.sleep(10)
 
         return resp is not None

@@ -106,12 +106,14 @@ class FourHeatClimate(FourHeatBaseEntity, ClimateEntity):
         """Turn the entity on."""
         if not self.is_on():
             await self.coordinator.async_turn_on()
+
         await self.coordinator.async_refresh()
 
     async def async_turn_off(self):
         """Turn the entity off."""
         if self.is_on():
             await self.coordinator.async_turn_off()
+
         await self.coordinator.async_refresh()
 
     @property
