@@ -69,13 +69,13 @@ class FourHeatSwitch(FourHeatBaseEntity, SwitchEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the entity off."""
-        await self.coordinator.async_turn_off
+        await self.coordinator.async_turn_off()
         # ----------------------------------------------------------------------------
         # Use async_refresh on the DataUpdateCoordinator to perform immediate update.
         # Using self.async_update or self.coordinator.async_request_refresh may delay update due
         # to trying to batch requests.
         # ----------------------------------------------------------------------------
-        await self.coordinator.async_refresh()
+        await self.coordinator.async_request_refresh()
 
     @property
     def extra_state_attributes(self):
