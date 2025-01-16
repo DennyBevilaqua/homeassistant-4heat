@@ -51,7 +51,7 @@ class TCPCommunication:
             await loop.run_in_executor(None, sock.sendall, data_to_send)
 
             response = await self.__receive_data(sock)
-            _LOGGER.debug("Received %s from cloud")
+            _LOGGER.debug("Received '%s' from device", response)
         except ConnectionRefusedError as e:
             _LOGGER.error("Connection refused to %s:%s", self.ip, str(self.port))
             _LOGGER.error(e)
@@ -87,9 +87,7 @@ class TCPCommunication:
         command = (
             f'{COMMAND_SET_TEMPERATURE}{temp_hex}{device.set_temperature_command}"]'
         )
-        resp = await self.__send_command(command)
-        _LOGGER.debug("Device returned %s", resp)
-        return resp
+        return await self.__send_command(command)
 
 
 class TCPCommunicationError(Exception):

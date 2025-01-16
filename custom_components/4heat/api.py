@@ -76,7 +76,7 @@ class API:
                 resp = await response.text()
 
                 _LOGGER.debug(
-                    "Received response '%s' from API. Command %s", resp, command
+                    "Received response '%s' from API. Command '%s'", resp, command
                 )
 
                 return resp
@@ -114,7 +114,6 @@ class API:
 
                 # command = f'{COMMAND_SET_TEMPERATURE}e023100{temp_hex}"]'
                 resp = await self.__send_command(token, command)
-                _LOGGER.debug("Device returned '%s'", resp)
 
         _LOGGER.debug("Trying Option 2")
         for s_command in device.set_temperature_command:
@@ -125,7 +124,6 @@ class API:
 
                 # command = f'{COMMAND_SET_TEMPERATURE}e023100{temp_hex}"]'
                 resp = await self.__send_command(token, command)
-                _LOGGER.debug("Device returned '%s'", resp)
 
         return resp
 
