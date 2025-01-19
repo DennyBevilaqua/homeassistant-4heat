@@ -15,14 +15,7 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
-from homeassistant.const import (
-    CONF_CODE,
-    CONF_IP_ADDRESS,
-    CONF_PASSWORD,
-    CONF_PIN,
-    CONF_PORT,
-    CONF_USERNAME,
-)
+from homeassistant.const import CONF_CODE, CONF_PASSWORD, CONF_PIN, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 
@@ -65,18 +58,13 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
         )
 
         token = await api.get_token()
-        api_data = await api.get_data(token)
+        file_map = await api.get_file_map(token)
 
-        if api_data is None:
+        if file_map is None:
             _raise_invalid_api_response("No API response")
 
-        if api_data.get("Name") is None or len(api_data.get("Name")) == 0:
+        if file_map.get("name") is None or len(file_map.get("name")) == 0:
             _raise_invalid_api_response("No device name returned")
-
-        device_name = api_data.get("Name")
-
-        if api_data.get("IpAddress") is None or len(api_data.get("IpAddress")) == 0:
-            _raise_invalid_api_response("No Ip Address returned")
 
     except InvalidAPIResponse as err:
         _LOGGER.error("Invalid API response")
@@ -91,11 +79,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
         _LOGGER.error(err)
         raise CannotConnect from err
 
-    return {
-        "title": device_name,
-        CONF_IP_ADDRESS: api_data.get("IpAddress"),
-        CONF_PORT: 80,
-    }
+    return file_map
 
 
 class FourHeatConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -120,7 +104,7 @@ class FourHeatConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             # The form has been filled in and submitted, so process the data provided.
             try:
-                info = await validate_input(self.hass, user_input)
+                file_map = await validate_input(self.hass, user_input)
             except CannotConnect:
                 errors["base"] = "cannot_connect"
             except InvalidAuth:
@@ -134,10 +118,10 @@ class FourHeatConfigFlow(ConfigFlow, domain=DOMAIN):
             if "base" not in errors:
                 # Validation was successful, so create a unique id for this instance of your integration
                 # and create the config entry.
-                await self.async_set_unique_id(info.get("title"))
+                await self.async_set_unique_id(file_map.get("name"))
                 self._abort_if_unique_id_configured()
                 return self.async_create_entry(
-                    title=info["title"], data=user_input, options=info
+                    title=file_map["name"], data=user_input, options=file_map
                 )
 
         # Show initial form.
@@ -166,7 +150,7 @@ class FourHeatConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 user_input[CONF_CODE] = config_entry.data[CONF_CODE]
-                await validate_input(self.hass, user_input)
+                file_map = await validate_input(self.hass, user_input)
             except CannotConnect:
                 errors["base"] = "cannot_connect"
             except InvalidAuth:
@@ -181,6 +165,7 @@ class FourHeatConfigFlow(ConfigFlow, domain=DOMAIN):
                     config_entry,
                     unique_id=config_entry.unique_id,
                     data={**config_entry.data, **user_input},
+                    options=file_map,
                     reason="reconfigure_successful",
                 )
         return self.async_show_form(

@@ -83,7 +83,10 @@ class FourHeatSwitch(FourHeatBaseEntity, SwitchEntity):
         # Add any additional attributes you want on your sensor.
         attrs = {}
         attrs["is_connected"] = self.coordinator.device.is_connected
-        attrs["timestamp"] = self.coordinator.device.state_timestamp
+        attrs["state_code"] = self.coordinator.device.state
+        attrs["state_desc"] = self.coordinator.device.state_description
+        attrs["state_timestamp"] = self.coordinator.device.state_timestamp.isoformat()
+        attrs["last_update"] = self.coordinator.device.last_update.isoformat()
         attrs["error_code"] = self.coordinator.device.error_code
         attrs["error"] = self.coordinator.device.error_description
         return attrs

@@ -47,14 +47,15 @@ class FourHeatClimate(FourHeatBaseEntity, ClimateEntity):
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_target_temperature_step = 1
 
+    @property
     def is_on(self) -> bool:
         """Return if the device is on."""
         return self.coordinator.device.is_on
 
     @property
     def hvac_mode(self):
-        """Return new hvac mode - HEAT or OFF."""
-        return HVACMode.HEAT if self.is_on() else HVACMode.OFF
+        """Return current HVAC Mode - HEAT or OFF."""
+        return HVACMode.HEAT if self.is_on else HVACMode.OFF
 
     @property
     def supported_features(self):
@@ -95,9 +96,12 @@ class FourHeatClimate(FourHeatBaseEntity, ClimateEntity):
 
         await self.coordinator.async_refresh()
 
+    async def async_set_preset_mode(self, preset_mode):
+        """Set new target preset mode."""
+
     async def async_toggle(self):
         """Toggle the entity."""
-        if self.is_on():
+        if self.is_on:
             await self.async_turn_off()
         else:
             await self.async_turn_on()
@@ -122,7 +126,10 @@ class FourHeatClimate(FourHeatBaseEntity, ClimateEntity):
         # Add any additional attributes you want on your sensor.
         attrs = {}
         attrs["is_connected"] = self.coordinator.device.is_connected
-        attrs["timestamp"] = self.coordinator.device.state_timestamp
+        attrs["state_code"] = self.coordinator.device.state
+        attrs["state_desc"] = self.coordinator.device.state_description
+        attrs["state_timestamp"] = self.coordinator.device.state_timestamp.isoformat()
+        attrs["last_update"] = self.coordinator.device.last_update.isoformat()
         attrs["error_code"] = self.coordinator.device.error_code
         attrs["error"] = self.coordinator.device.error_description
         return attrs

@@ -5,7 +5,7 @@ import json
 import logging
 from typing import Any
 
-from .const import DEVICE_ERRORS
+from .const import DEVICE_ERRORS, TCP_PORT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -20,6 +20,7 @@ class Device:
     state_timestamp: datetime
     last_update: datetime
     ip: str
+    port = TCP_PORT
     name: str
     is_connected: bool
     software_version: str
@@ -51,7 +52,7 @@ class Device:
     @property
     def is_error(self) -> bool:
         """Property is error."""
-        return self.error_code == 0
+        return self.error_code != 0
 
     @property
     def error_description(self) -> str:
@@ -62,9 +63,42 @@ class Device:
 
         return ""
 
+    @property
+    def state_description(self) -> str:
+        """Property state description."""
+
+        if device_loader.state_descriptor:
+            state_desc = next(
+                (
+                    item
+                    for item in device_loader.state_descriptor
+                    if item["val"] == self.state
+                ),
+                None,
+            )
+
+            if state_desc:
+                return state_desc.get("descrizione_pt", "Unknown")
+
+        return "Unknown"
+
 
 class _DeviceLoader:
     """Translate the received message from 4Heat devices."""
+
+    file_map = None
+    main_thermostat: int = 12
+    state_descriptor = []
+
+    def initiate(self, file_map: dict[str, Any]) -> None:
+        """Initialise DeviceLoader."""
+        self.file_map = file_map
+
+        if file_map:
+            com_therm: dict[str, Any] = file_map.get("comandi_term_princ")
+            if com_therm:
+                self.main_thermostat = int(com_therm.get("scritt_termostato", 12)) - 1
+            self.state_descriptor = file_map.get("lingue_stati", [])
 
     def __convertSignedValue(self, value: int) -> int:
         """Convert a signed value to an integer."""
@@ -80,6 +114,7 @@ class _DeviceLoader:
         if command_type == 1:  # th_all
             resp = {
                 "command_type": "th_all",
+                "command_code": command[:2],
                 "id": int(command[2:4], 16),
                 "parent": int(command[4:6], 16),
                 "enablement": int(command[6:8], 16),
@@ -93,6 +128,7 @@ class _DeviceLoader:
         elif command_type == 2:  # th_temp
             resp = {
                 "command_type": "th_temp",
+                "command_code": command[:2],
                 "id": int(command[2:4], 16),
                 "parent": int(command[4:6], 16),
                 "temperature": self.__convertSignedValue(int(command[6:10], 16)),
@@ -100,6 +136,7 @@ class _DeviceLoader:
         elif command_type == 3:  # th_state
             resp = {
                 "command_type": "th_state",
+                "command_code": command[:2],
                 "id": int(command[2:4], 16),
                 "parent": int(command[4:6], 16),
                 "status": int(command[6:8], 16),
@@ -109,6 +146,7 @@ class _DeviceLoader:
         elif command_type == 6:  # pw_all
             resp = {
                 "command_type": "pw_all",
+                "command_code": command[:2],
                 "id": int(command[2:4], 16),
                 "value": int(command[4:6], 16),
                 "min": int(command[6:8], 16),
@@ -118,6 +156,7 @@ class _DeviceLoader:
         elif command_type == 8:  # crono_enb
             resp = {
                 "command_type": "crono_enb",
+                "command_code": command[:2],
                 "id": int(command[2:4], 16),
                 "status": int(command[4:6], 16),
                 "mode": int(command[6:8], 16),
@@ -125,6 +164,7 @@ class _DeviceLoader:
         elif command_type == 11:  # stat_syst
             resp = {
                 "command_type": "stat_syst",
+                "command_code": command[:2],
                 "id": int(command[2:4], 16),
                 "status": int(command[4:6], 16),
                 "var_status": int(command[6:8], 16),
@@ -139,6 +179,7 @@ class _DeviceLoader:
                 )
                 resp = {
                     "command_type": "state_info",
+                    "command_code": command[:2],
                     "id": int(command[2:4], 16),
                     "stringa": str_value,
                 }
@@ -146,6 +187,7 @@ class _DeviceLoader:
                 if len(command) == 28:
                     resp = {
                         "command_type": "state_info_81",
+                        "command_code": command[:2],
                         "id": int(command[2:4], 16),
                         "status_crono": int(command[4:6], 16),
                         "liv_pot": chr(int(command[6:8], 16)),
@@ -153,11 +195,11 @@ class _DeviceLoader:
                         "num_recipe": int(command[10:12], 16),
                         "ind_RS485": int(command[12:14], 16),
                         "thermostat": int(command[24:28], 16),
-                        "set_temperature_command": command[10:28],
                     }
                 else:
                     resp = {
                         "command_type": "state_info_81",
+                        "command_code": command[:2],
                         "id": int(command[2:4], 16),
                         "status_crono": int(command[4:6], 16),
                         "liv_pot": chr(int(command[6:8], 16)),
@@ -166,11 +208,11 @@ class _DeviceLoader:
                         "ind_RS485": int(command[12:14], 16),
                         "thermostat": int(command[24:28], 16),
                         "pos_punto": int(command[28:30], 16),
-                        "set_temperature_command": command[10:28],
                     }
         elif command_type == 14:  # par_value
             resp = {
                 "command_type": "par_value",
+                "command_code": command[:2],
                 "id": int(command[2:6], 16),
                 "value": self.__convertSignedValue(int(command[6:10], 16)),
                 "min": self.__convertSignedValue(int(command[10:14], 16)),
@@ -184,6 +226,7 @@ class _DeviceLoader:
             if len(command) == 36:
                 resp = {
                     "command_type": "main_values",
+                    "command_code": command[:2],
                     "temp_sec": self.__convertSignedValue(int(command[6:10], 16)),
                     "status": int(command[10:12], 16),
                     "cod_error": int(command[12:14], 16),
@@ -192,6 +235,7 @@ class _DeviceLoader:
             else:
                 resp = {
                     "command_type": "main_values",
+                    "command_code": command[:2],
                     "temp_sec": self.__convertSignedValue(int(command[6:10], 16)),
                     "status": int(command[10:12], 16),
                     "cod_error": int(command[12:14], 16),
@@ -201,6 +245,7 @@ class _DeviceLoader:
         elif command_type == 18:  # testout
             resp = {
                 "command_type": "testout",
+                "command_code": command[:2],
                 "id": int(command[2:6], 16),
                 "value": self.__convertSignedValue(int(command[6:10], 16)),
                 "min": self.__convertSignedValue(int(command[10:14], 16)),
@@ -209,10 +254,12 @@ class _DeviceLoader:
                 "pos_punto": int(command[20:22], 16),
                 "step_incr": int(command[22:26], 16),
                 "test_timer": int(command[30:34], 16),
+                "set_temperature_command": command[10:28],
             }
         elif command_type == 34:  # th_all_2
             resp = {
                 "command_type": "th_all_2",
+                "command_code": command[:2],
                 "id": int(command[2:4], 16),
                 "parent": int(command[4:6], 16),
                 "enablement": int(command[6:8], 16),
@@ -239,21 +286,20 @@ class _DeviceLoader:
                     json_data.pop(0)
                     json_data.pop(0)
 
-                resp_dic = {}
-
                 for data in json_data:
                     resp = self.__read_command_response(data)
                     command_type = resp.get("command_type", "")
-                    if command_type:
-                        resp_dic[command_type] = resp
 
-                main_resp = resp_dic["main_values"]
+                    if command_type == "main_values":
+                        main_resp = resp
+                    elif data == json_data[self.main_thermostat]:
+                        thermostate_resp = resp
+
                 device.state = main_resp.get("status", 999)
                 device.error_code = main_resp.get("cod_error", 999)
                 device.room_temperature = main_resp.get("temp_princ", 0)
 
-                thermostate_resp = resp_dic["state_info_81"]
-                device.target_temperature = thermostate_resp.get("thermostat", 0)
+                device.target_temperature = thermostate_resp.get("value", 0)
                 device.set_temperature_command = thermostate_resp.get(
                     "set_temperature_command", ""
                 )
@@ -272,7 +318,9 @@ class _DeviceLoader:
             device.name = received_data.get("Name")
             device.ip = received_data.get("IpAddress")
             device.is_connected = received_data.get("IsConnected")
-            device.state_timestamp = received_data.get("LastTimestamp")
+            device.state_timestamp = datetime.fromisoformat(
+                received_data.get("LastTimestamp")
+            )
             device.software_version = f"{received_data.get("ProductVersion", 0).lstrip("0")}.{received_data.get("FirmwareVersion")}.{received_data.get("FirmwareRevision")}"
 
             last_message_received = received_data.get("LastMessageReceived")
@@ -282,28 +330,23 @@ class _DeviceLoader:
                 values = json_last_msg.get("Values", None)
 
                 if values:
-                    resp_dic = {}
-
                     for data in values:
                         resp = self.__read_command_response(data)
-                        _LOGGER.debug("Translated response/commands: %s", resp)
-
                         command_type = resp.get("command_type", "")
-                        if command_type:
-                            resp_dic[command_type] = resp
 
-                    main_resp = resp_dic["main_values"]
+                        if command_type == "main_values":
+                            main_resp = resp
+                        elif data == values[self.main_thermostat]:
+                            thermostate_resp = resp
+
                     device.state = main_resp.get("status", 999)
                     device.error_code = main_resp.get("cod_error", 999)
                     device.room_temperature = main_resp.get("temp_princ", 0)
 
-                    thermostate_resp = resp_dic["state_info_81"]
-                    device.target_temperature = thermostate_resp.get("thermostat", 0)
-
-                    device.set_temperature_command = values
-                    # device.set_temperature_command = thermostate_resp.get(
-                    #    "set_temperature_command", ""
-                    # )
+                    device.target_temperature = thermostate_resp.get("value", 0)
+                    device.set_temperature_command = thermostate_resp.get(
+                        "set_temperature_command", ""
+                    )
 
                     device.last_update = datetime.now()
         except (KeyError, ValueError, TypeError) as e:

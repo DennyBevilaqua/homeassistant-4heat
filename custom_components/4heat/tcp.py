@@ -83,10 +83,18 @@ class TCPCommunication:
     async def set_temperature(self, device: Device, temperature: int) -> str:
         """Send set temperature command to the device."""
         temp_hex = hex(temperature)[2:]
+
         _LOGGER.debug("Trying to set temperature to %s(0x%s)", temperature, temp_hex)
-        command = (
-            f'{COMMAND_SET_TEMPERATURE}{temp_hex}{device.set_temperature_command}"]'
-        )
+
+        if len(temp_hex) == 1:
+            temp_hex = f"000{temp_hex}"
+        elif len(temp_hex) == 2:
+            temp_hex = f"00{temp_hex}"
+        else:
+            raise TCPCommunication("Target temperature is invalid")
+
+        command = f'{COMMAND_SET_TEMPERATURE}{temp_hex}{device.set_temperature_command}"]'
+
         return await self.__send_command(command)
 
 

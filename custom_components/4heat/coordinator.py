@@ -5,14 +5,7 @@ from datetime import datetime, timedelta
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import (
-    CONF_CODE,
-    CONF_IP_ADDRESS,
-    CONF_PASSWORD,
-    CONF_PIN,
-    CONF_PORT,
-    CONF_USERNAME,
-)
+from homeassistant.const import CONF_CODE, CONF_PASSWORD, CONF_PIN, CONF_USERNAME
 from homeassistant.core import DOMAIN as HOMEASSISTANT_DOMAIN, HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -37,9 +30,9 @@ class FourHeatDataUpdateCoordinator(DataUpdateCoordinator):
         self.pin = config_entry.data[CONF_PIN]
         self.user = config_entry.data[CONF_USERNAME]
         self.pwd = config_entry.data[CONF_PASSWORD]
-        self.ip = config_entry.options.get(CONF_IP_ADDRESS, None)
-        self.port = config_entry.options.get(CONF_PORT, 80)
+        self.file_map = config_entry.options
         self.token = None
+        self.tcp_client = None
         self.com_type = "TCP"
 
         # Initialise DataUpdateCoordinator
@@ -58,10 +51,17 @@ class FourHeatDataUpdateCoordinator(DataUpdateCoordinator):
         # Initialise your api here and make available to your integration.
         self.api = API(code=self.code, pin=self.pin, user=self.user, pwd=self.pwd)
 
-        # Initialise your TCP Client
-        self.tcp_client = TCPCommunication(self.ip, self.port)
-
+        device_loader.initiate(self.file_map)
         self.device = Device()
+
+    async def __initiate_tcp(self):
+        # Initialise TCP Client
+        if self.tcp_client is None:
+            if self.device.ip is None:
+                await self.__update_from_cloud()
+                if self.device.ip is None:
+                    raise APIConnectionError("Not possible to get device IP Address")
+            self.tcp_client = TCPCommunication(self.device.ip, self.device.port)
 
     async def async_auth(self):
         """Authenticate with the API."""
@@ -98,21 +98,14 @@ class FourHeatDataUpdateCoordinator(DataUpdateCoordinator):
             # Get the data from your api
             # NOTE: Change this to use a real api call for data
             # ----------------------------------------------------------------------------
-
-            if self.device.name is None:
-                await self.__update_from_cloud()
-
-            if self.ip != self.device.ip:
-                self.ip = self.device.ip
-                self.tcp_client = TCPCommunication(self.ip, self.port)
-
             try:
+                await self.__initiate_tcp()
                 await self.__update_from_local()
             except TCPCommunicationError as e:
                 _LOGGER.error(
                     "It was not possible to connect to 4Heat device(%s:%s)",
-                    self.ip,
-                    str(self.port),
+                    self.device.ip,
+                    str(self.device.port),
                 )
                 _LOGGER.error(e)
                 _LOGGER.warning("Will try to connect to cloud")
@@ -133,6 +126,7 @@ class FourHeatDataUpdateCoordinator(DataUpdateCoordinator):
         resp = None
         try:
             try:
+                await self.__initiate_tcp()
                 resp = await self.tcp_client.set_temperature(self.device, temperature)
             except TCPCommunicationError as e:
                 _LOGGER.error(e)
@@ -160,6 +154,7 @@ class FourHeatDataUpdateCoordinator(DataUpdateCoordinator):
         resp = None
         try:
             try:
+                await self.__initiate_tcp()
                 resp = await self.tcp_client.turn_off()
             except TCPCommunicationError as e:
                 _LOGGER.error(e)
@@ -185,6 +180,7 @@ class FourHeatDataUpdateCoordinator(DataUpdateCoordinator):
         resp = None
         try:
             try:
+                await self.__initiate_tcp()
                 resp = await self.tcp_client.turn_on()
             except TCPCommunicationError as e:
                 _LOGGER.error(e)

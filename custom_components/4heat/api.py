@@ -7,9 +7,9 @@ import aiohttp
 
 from .const import (
     API_BASE_URL,
+    COMMAND_SET_TEMPERATURE,
     COMMAND_TURN_OFF,
     COMMAND_TURN_ON,
-    # COMMAND_SET_TEMPERATURE,
 )
 from .device import Device
 
@@ -22,6 +22,7 @@ class API:
     def __init__(self, code: str, pin: str, user: str, pwd: str) -> None:
         """Initialise."""
         self.code = code
+        self.pin = pin
         self.user = user
         self.pwd = pwd
 
@@ -43,6 +44,23 @@ class API:
         except Exception as err:
             _LOGGER.error(err)
             raise APIAuthError("Error getting token") from err
+
+    async def get_file_map(self, token: dict[str, Any]) -> dict[str, Any]:
+        """Get Device File Map."""
+        try:
+            async with aiohttp.ClientSession() as session:
+                response = await session.get(
+                    f"{API_BASE_URL}/api/Devices/FileMap?pin={self.pin}&id={self.code}",
+                    headers={"Authorization": f"Bearer {token.get("access_token")}"},
+                    timeout=120,
+                )
+
+                return await response.json()
+        except Exception as err:
+            _LOGGER.error(err)
+            raise APIConnectionError(
+                "It was not possible to get the file map from API"
+            ) from err
 
     async def get_data(self, token: dict[str, Any]) -> dict[str, Any]:
         """Get api data."""
@@ -105,115 +123,18 @@ class API:
         temp_hex = hex(temperature)[2:]
         _LOGGER.debug("Trying to set temperature to %s(0x%s)", temperature, temp_hex)
 
-        _LOGGER.debug("Trying Option 1")
-        for s_command in device.set_temperature_command:
-            command = self.get_command(s_command, temperature)
-
-            if command != s_command:
-                _LOGGER.debug("Trying command '%s'", command)
-
-                # command = f'{COMMAND_SET_TEMPERATURE}e023100{temp_hex}"]'
-                resp = await self.__send_command(token, command)
-
-        _LOGGER.debug("Trying Option 2")
-        for s_command in device.set_temperature_command:
-            command = self.get_command2(s_command, temperature)
-
-            if command != s_command:
-                _LOGGER.debug("Trying command '%s'", command)
-
-                # command = f'{COMMAND_SET_TEMPERATURE}e023100{temp_hex}"]'
-                resp = await self.__send_command(token, command)
-
-        return resp
-
-    def get_command(self, comando, valore):
-        """Get command."""
-        comando_prefix = int(comando[:2], 16)
-
-        if comando_prefix == 1:  # th_all
-            if valore >= 16:
-                valore = hex(valore)[2:]
-            else:
-                valore = "0" + hex(valore)[2:]
-            comando = "05" + comando[:10] + valore + comando[12:]
-
-        elif comando_prefix == 14:  # par_value
-            if valore < 0:
-                valore += 65535
-                valore = hex(valore)[2:]
-            elif valore >= 256:
-                valore = "0" + hex(valore)[2:]
-            elif valore >= 16:
-                valore = "00" + hex(valore)[2:]
-            else:
-                valore = "000" + hex(valore)[2:]
-            comando = "05" + comando[:6] + valore
-
-        elif comando_prefix == 18:  # testout
-            if valore < 0:
-                valore += 65535
-                valore = hex(valore)[2:]
-            elif valore >= 256:
-                valore = "0" + hex(valore)[2:]
-            elif valore >= 16:
-                valore = "00" + hex(valore)[2:]
-            else:
-                valore = "000" + hex(valore)[2:]
-            comando = "05" + comando[:6] + valore + comando[10:28]
-
-        elif comando_prefix == 34:  # th_all_2
-            if valore < 0:
-                valore += 65535
-                valore = hex(valore)[2:]
-            elif valore >= 256:
-                valore = "0" + hex(valore)[2:]
-            elif valore >= 16:
-                valore = "00" + hex(valore)[2:]
-            else:
-                valore = "000" + hex(valore)[2:]
-            comando = "05" + comando[:10] + valore + comando[14:]
-
-        _LOGGER.debug("comando aggiornato %s", comando)
-
-        return comando
-
-    def get_command2(self, comando, valore):
-        """Get command2."""
-
-        if valore >= 16:
-            valore = hex(valore)[2:]
-        elif valore >= 0:
-            valore = "0" + hex(valore)[2:]
+        if len(temp_hex) == 1:
+            temp_hex = f"000{temp_hex}"
+        elif len(temp_hex) == 2:
+            temp_hex = f"00{temp_hex}"
         else:
-            valore = 65536 + valore  # valore è negativo
-            valore = hex(valore)[2:]
-        # print(valore)
+            raise APIConnectionError("Target temperature is invalid")
 
-        if comando[:2] == "06":
-            comando = "05" + comando[:4] + valore + comando[6:10]
-        elif comando[:2] == "01":
-            comando = "05" + comando[:10] + valore + comando[12:]
-        elif comando[:2] == "0e":
-            if len(valore) == 2:
-                valore = "00" + valore
-            elif len(valore) == 3:
-                valore = "0" + valore
-            comando = "05" + comando[:6] + valore
-        elif comando[:2] == "12":
-            if len(valore) == 2:
-                valore = "00" + valore
-            elif len(valore) == 3:
-                valore = "0" + valore
-            comando = "05" + comando[:6] + valore + comando[10:28]
-        elif comando[:2] == "22":
-            if len(valore) == 2:
-                valore = "00" + valore
-            elif len(valore) == 3:
-                valore = "0" + valore
-            comando = "05" + comando[:10] + valore + comando[14:]
-        # print(comando)
-        return comando
+        command = (
+            f'{COMMAND_SET_TEMPERATURE}{temp_hex}{device.set_temperature_command}"]'
+        )
+
+        return await self.__send_command(token, command)
 
 
 class APIAuthError(Exception):
